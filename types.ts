@@ -32,9 +32,16 @@ export interface AppSettings {
   compactSidebar: boolean;
   glassIntensity: 'low' | 'medium' | 'high';
   themeAccent: 'teal' | 'blue' | 'purple' | 'gold';
+  activeWallpaper: string; 
   animationsEnabled: boolean;
   motionEffects: boolean;
   autoSync: boolean;
+
+  // Visual Layer Control
+  bgOverlayOpacity: number; // 0.0 to 1.0 (Transparency)
+  enableTechGrid: boolean;  // Visibility of tech pattern
+  enableNoise: boolean;     // Visibility of grain
+  techGridPosition: 'back' | 'front'; // Layer ordering
   
   // Environment
   defaultCurrency: string;
@@ -144,4 +151,15 @@ export interface PurchaseOrder {
   amount: number;
   status: POStatus;
   date: string;
+}
+
+export interface ProjectItem {
+  id: string;
+  title: string;
+  client_name: string;
+  deadline: string;
+  total_amount: number;
+  cost: number;
+  paul_share: number;
+  status: "ACTIVE" | "PENDING" | "COMPLETED";
 }

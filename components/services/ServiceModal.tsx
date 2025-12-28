@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Save, Upload, FileText, Image as ImageIcon, Wand2, Loader2, DollarSign } from "lucide-react";
+import { X, Save, Upload, FileText, Image as ImageIcon, Wand2, Loader2, DollarSign, Layers } from "lucide-react";
 import { useAsyncAction } from "../../hooks/useAsyncAction";
 import { ServiceItem, ServiceCategory } from "../../types";
-import { supabase } from "../../lib/supabaseClient";
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface ServiceModalProps {
@@ -12,9 +11,37 @@ interface ServiceModalProps {
   onClose: () => void;
   onSuccess: (item?: ServiceItem) => void;
   existingItem?: ServiceItem | null;
+  initialCategory?: ServiceCategory;
 }
 
-export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem }: ServiceModalProps) {
+const CATEGORY_SPECS: Record<string, { label: string; key: string; placeholder: string }[]> = {
+  TENT: [
+    { label: "Dimensions", key: "size", placeholder: "e.g. 10x20m" },
+    { label: "Style/Type", key: "type", placeholder: "e.g. European Marquee" }
+  ],
+  CATERING: [
+    { label: "Serving Capacity", key: "serves", placeholder: "e.g. 50 Pax" },
+    { label: "Cuisine Style", key: "cuisine", placeholder: "e.g. Traditional Saudi" }
+  ],
+  ENTERTAINMENT: [
+    { label: "Duration", key: "duration", placeholder: "e.g. 4 Hours" },
+    { label: "Space Req.", key: "space", placeholder: "e.g. 3x3m Booth" }
+  ],
+  BRANDING: [
+    { label: "Material", key: "material", placeholder: "e.g. Vinyl / Foam" },
+    { label: "Dimensions", key: "size", placeholder: "e.g. A4 / Large Format" }
+  ],
+  GIFT: [
+    { label: "Item Type", key: "type", placeholder: "e.g. Electronics" },
+    { label: "Packaging", key: "packaging", placeholder: "e.g. Premium Box" }
+  ],
+  GENERAL: [
+    { label: "Specification 1", key: "spec1", placeholder: "Detail..." },
+    { label: "Specification 2", key: "spec2", placeholder: "Detail..." }
+  ]
+};
+
+export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem, initialCategory }: ServiceModalProps) {
   const { execute, isLoading } = useAsyncAction();
   
   // Creation Mode: MANUAL or AI_IMPORT
@@ -24,42 +51,46 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
   
   const [formData, setFormData] = useState({
     title: "",
-    category: "TENT",
-    selling_price: 4500,
-    cost_price: 3500,
-    size: "6x12m",
-    tent_type: "Beach Tent",
-    includes: "Majlis seating, Basic rugs, Installation & Removal",
+    category: "TENT" as ServiceCategory,
+    selling_price: 0,
+    cost_price: 0,
+    includes: "",
   });
 
+  const [specs, setSpecs] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    if (existingItem) {
-      setFormData({
-        title: existingItem.title,
-        category: existingItem.category,
-        selling_price: existingItem.selling_price,
-        cost_price: existingItem.cost_price,
-        size: existingItem.specifications?.size || "6x12m",
-        tent_type: existingItem.specifications?.type || "Beach Tent",
-        includes: existingItem.includes ? existingItem.includes.join(', ') : "",
-      });
-    } else {
-      // Reset defaults
-      setFormData({
-        title: "",
-        category: "TENT",
-        selling_price: 4500,
-        cost_price: 3500,
-        size: "6x12m",
-        tent_type: "Beach Tent",
-        includes: "Majlis seating, Basic rugs, Installation & Removal",
-      });
+    if (isOpen) {
+      if (existingItem) {
+        setFormData({
+          title: existingItem.title,
+          category: existingItem.category,
+          selling_price: existingItem.selling_price,
+          cost_price: existingItem.cost_price,
+          includes: existingItem.includes ? existingItem.includes.join(', ') : "",
+        });
+        setSpecs(existingItem.specifications || {});
+      } else {
+        // Reset defaults
+        setFormData({
+          title: "",
+          category: initialCategory || "TENT",
+          selling_price: 0,
+          cost_price: 0,
+          includes: "",
+        });
+        setSpecs({});
+      }
     }
-  }, [existingItem, isOpen]);
+  }, [existingItem, isOpen, initialCategory]);
 
   // INTELLIGENCE: Auto-calculate Profit for Display
   const profit = Number(formData.selling_price) - Number(formData.cost_price);
   const margin = Number(formData.selling_price) > 0 ? ((profit / Number(formData.selling_price)) * 100).toFixed(1) : "0.0";
+
+  const handleSpecChange = (key: string, value: string) => {
+    setSpecs(prev => ({ ...prev, [key]: value }));
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -78,7 +109,7 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
           contents: {
             parts: [
               { inlineData: { mimeType: file.type, data: base64 } },
-              { text: "Analyze this image/document. Extract service details for a catering/event company. If costs aren't visible, estimate reasonable values." }
+              { text: "Analyze this image/document. Extract service details for a catering/event company. If costs aren't visible, estimate reasonable values based on Saudi market rates." }
             ]
           },
           config: {
@@ -87,11 +118,16 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
               type: Type.OBJECT,
               properties: {
                 title: { type: Type.STRING },
-                category: { type: Type.STRING, enum: ["TENT", "CATERING", "BRANDING", "GIFT"] },
+                category: { type: Type.STRING, enum: ["TENT", "CATERING", "BRANDING", "GIFT", "ENTERTAINMENT"] },
                 selling_price: { type: Type.NUMBER },
                 cost_price: { type: Type.NUMBER },
-                size: { type: Type.STRING },
-                tent_type: { type: Type.STRING },
+                specifications: { 
+                    type: Type.OBJECT,
+                    properties: {
+                        spec1: { type: Type.STRING },
+                        spec2: { type: Type.STRING },
+                    }
+                },
                 includes: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
               required: ["title", "category", "selling_price", "cost_price", "includes"]
@@ -102,14 +138,16 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
         const data = JSON.parse(response.text || "{}");
         
         setFormData({
-          title: data.title || "New Service",
-          category: data.category || "TENT",
+          title: data.title || "AI Imported Service",
+          category: (data.category as ServiceCategory) || "TENT",
           selling_price: data.selling_price || 0,
           cost_price: data.cost_price || 0,
-          size: data.size || "",
-          tent_type: data.tent_type || "",
           includes: data.includes ? data.includes.join(', ') : ""
         });
+
+        // Map AI generic specs to the current category structure if possible, or just dump them
+        // For simplicity, we just use what AI gave us if keys match, otherwise we might need manual adjustment
+        setSpecs(data.specifications || {});
         
         setMode('MANUAL'); // Switch to manual to show filled data
         setIsAiProcessing(false);
@@ -125,13 +163,9 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
 
   const handleSubmit = async () => {
     await execute(async () => {
-      // Construct JSON based on category
-      const specs: any = {};
-      if (formData.category === 'TENT') {
-        specs.size = formData.size;
-        specs.type = formData.tent_type;
-      }
-      
+      // Basic Validation
+      if (!formData.title) throw new Error("Service Title is required");
+
       const includesArray = formData.includes.split(',').map(s => s.trim()).filter(s => s);
 
       const payload = {
@@ -155,6 +189,8 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
       onClose();
     }, existingItem ? "Service updated" : "Service added to catalog");
   };
+
+  const currentSpecsConfig = CATEGORY_SPECS[formData.category] || CATEGORY_SPECS.GENERAL;
 
   return (
     <AnimatePresence>
@@ -242,11 +278,11 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
               {mode === 'MANUAL' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-left-4">
                   {/* Category Select */}
-                  <div className="grid grid-cols-4 gap-2">
-                    {['TENT', 'CATERING', 'BRANDING', 'GIFT'].map(cat => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['TENT', 'CATERING', 'BRANDING', 'GIFT', 'ENTERTAINMENT'].map(cat => (
                       <button 
                         key={cat} 
-                        onClick={() => setFormData({...formData, category: cat})}
+                        onClick={() => setFormData({...formData, category: cat as ServiceCategory})}
                         className={`py-2 text-[9px] font-black rounded border transition-all ${formData.category === cat ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-transparent border-white/10 text-slate-500 hover:text-white'}`}
                       >
                         {cat}
@@ -264,19 +300,26 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
                     />
                   </div>
 
-                  {/* Dynamic Fields based on Category */}
-                  {formData.category === 'TENT' && (
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Size</label>
-                          <input value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white font-bold outline-none focus:border-blue-500"/>
-                       </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Type</label>
-                          <input value={formData.tent_type} onChange={e => setFormData({...formData, tent_type: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white font-bold outline-none focus:border-blue-500"/>
-                       </div>
-                    </div>
-                  )}
+                  {/* Dynamic Specifications */}
+                  <div className="bg-white/5 rounded-2xl border border-white/5 p-4 space-y-4">
+                     <div className="flex items-center gap-2 mb-2">
+                        <Layers size={14} className="text-slate-400"/>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Technical Specs</h4>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        {currentSpecsConfig.map((field) => (
+                           <div key={field.key} className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{field.label}</label>
+                              <input 
+                                value={specs[field.key] || ''} 
+                                onChange={e => handleSpecChange(field.key, e.target.value)} 
+                                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white font-bold outline-none focus:border-blue-500"
+                                placeholder={field.placeholder}
+                              />
+                           </div>
+                        ))}
+                     </div>
+                  </div>
 
                   {/* Financial Intelligence Section */}
                   <div className="p-4 bg-gradient-to-br from-blue-900/10 to-purple-900/10 rounded-2xl border border-blue-500/20 space-y-4">
@@ -308,6 +351,7 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
                       value={formData.includes} 
                       onChange={e => setFormData({...formData, includes: e.target.value})}
                       className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white text-sm font-medium focus:border-blue-500 outline-none h-24 resize-none"
+                      placeholder="List included items, services, or staff..."
                     />
                   </div>
                 </div>
@@ -318,7 +362,7 @@ export default function ServiceModal({ isOpen, onClose, onSuccess, existingItem 
             <div className="p-6 border-t border-white/5 bg-black/20">
                {mode === 'MANUAL' ? (
                   <button onClick={handleSubmit} disabled={isLoading} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-900/20 disabled:opacity-50">
-                    {isLoading ? <Loader2 className="animate-spin" size={16}/> : (existingItem ? "Update Logic" : "Add Service")}
+                    {isLoading ? <Loader2 className="animate-spin" size={16}/> : (existingItem ? "Update Service" : "Add to Catalog")}
                   </button>
                ) : (
                   <button disabled className="w-full py-4 bg-purple-600/20 text-purple-200/50 font-black uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2 cursor-not-allowed border border-purple-500/20">

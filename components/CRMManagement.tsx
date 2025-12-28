@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Edit3, Trash2, Users, Save, X, Target } from "lucide-react";
 import { ClientItem } from "../types";
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { SEED_CLIENTS } from "../constants";
 
 interface CRMManagementProps {
   initialTab?: "CLIENT";
@@ -11,10 +12,7 @@ interface CRMManagementProps {
 
 const CRMManagement: React.FC<CRMManagementProps> = () => {
   const { execute } = useAsyncAction();
-  const [clients, setClients] = useState<ClientItem[]>([
-    { id: 1, name: "Aramco Systems", contact: "+966 50 123 4567", vat: "3000123456789", email: "procure@aramco.com" },
-    { id: 2, name: "Red Sea Global", contact: "+966 55 999 8888", vat: "3000987654321", email: "contracts@redsea.com" }
-  ]);
+  const [clients, setClients] = useState<ClientItem[]>(SEED_CLIENTS);
 
   const [isEditing, setIsEditing] = useState<number | null>(null);
   const [formData, setFormData] = useState<any>({});

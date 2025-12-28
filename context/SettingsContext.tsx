@@ -16,9 +16,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   compactSidebar: false,
   glassIntensity: 'medium',
   themeAccent: 'blue',
+  activeWallpaper: 'default',
   animationsEnabled: true,
   motionEffects: true,
   autoSync: true,
+  // Layer Defaults
+  bgOverlayOpacity: 0.7,
+  enableTechGrid: true,
+  enableNoise: true,
+  techGridPosition: 'back',
+  
   defaultCurrency: 'SAR',
   enableNotifications: true,
   language: 'en',
@@ -44,7 +51,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('elitepro_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    // Merge saved settings with defaults to ensure new fields (like layers) are present if old data exists
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
   const [appMode, setAppMode] = useState<AppMode>(() => {

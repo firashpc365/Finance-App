@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AppSettings, MenuPackage } from '../types';
 import { MENUS as INITIAL_MENUS } from '../constants';
 import DataManagement from './settings/DataManagement';
+import { WALLPAPER_PRESETS } from './ui/Background4K';
 import { 
   Cpu, 
   ChevronDown, 
@@ -29,7 +30,12 @@ import {
   Archive,
   Save,
   Undo2,
-  BrainCircuit
+  BrainCircuit,
+  Image as ImageIcon,
+  Grid,
+  Move,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useToast } from './ui/Toast';
 
@@ -50,9 +56,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   compactSidebar: false,
   glassIntensity: 'medium',
   themeAccent: 'teal',
+  activeWallpaper: 'default',
   animationsEnabled: true,
   motionEffects: true,
   autoSync: true,
+  bgOverlayOpacity: 0.7,
+  enableTechGrid: true,
+  enableNoise: true,
+  techGridPosition: 'back',
   defaultCurrency: 'SAR',
   enableNotifications: true,
   language: 'en',
@@ -198,8 +209,124 @@ const Settings: React.FC<SettingsProps> = ({ settings, setSettings, appState, on
           onToggle={() => setOpenSection(openSection === "THEME" ? null : "THEME")}
         >
           <div className="py-6 space-y-12">
-            {/* Theme Accent Selection */}
+            
+            {/* Background Selection */}
             <div className="space-y-6">
+              <div className="flex items-center gap-2 pl-1">
+                <ImageIcon size={14} className="text-slate-500" />
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Canvas Ambience (Wallpaper)</label>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {Object.entries(WALLPAPER_PRESETS).map(([key, url]) => (
+                  <button
+                    key={key}
+                    onClick={() => updateSetting('activeWallpaper', key)}
+                    className={`
+                      relative group aspect-square rounded-2xl overflow-hidden border-2 transition-all duration-300
+                      ${settings.activeWallpaper === key ? 'border-white ring-2 ring-white/20 scale-105 z-10' : 'border-white/10 opacity-60 hover:opacity-100 hover:border-white/30'}
+                    `}
+                  >
+                    <img src={url} alt={key} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors" />
+                    <span className="absolute bottom-2 left-2 text-[8px] font-black uppercase text-white tracking-wider drop-shadow-md">
+                      {key}
+                    </span>
+                    {settings.activeWallpaper === key && (
+                      <div className="absolute top-2 right-2 bg-blue-600 rounded-full p-0.5">
+                        <CheckCircle2 size={10} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* NEW: VISUAL LAYERS & COMPOSITION */}
+            <div className="space-y-6 pt-6 border-t border-white/5">
+              <div className="flex items-center gap-2 pl-1">
+                <Layers size={14} className="text-slate-500" />
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Visual Layers & Composition</label>
+              </div>
+              
+              <div className="bg-white/5 rounded-[2rem] p-6 space-y-8 border border-white/5">
+                {/* 1. Overlay Opacity Slider */}
+                <div className="space-y-4">
+                   <div className="flex justify-between items-center">
+                     <div className="flex items-center gap-3">
+                       <Eye size={16} className="text-slate-400" />
+                       <div>
+                         <p className="text-[10px] font-black text-white uppercase tracking-widest">Backdrop Tint Transparency</p>
+                         <p className="text-[9px] text-slate-500 font-medium">Control the darkness of the layer above the wallpaper.</p>
+                       </div>
+                     </div>
+                     <span className="px-3 py-1 bg-white/10 text-white rounded-lg font-black text-xs font-mono">{(settings.bgOverlayOpacity * 100).toFixed(0)}%</span>
+                   </div>
+                   <input 
+                    type="range" min="0" max="1" step="0.05"
+                    value={settings.bgOverlayOpacity}
+                    onChange={(e) => updateSetting('bgOverlayOpacity', parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer accent-white"
+                   />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* 2. Tech Grid Toggle & Position */}
+                   <div className="space-y-4 p-4 rounded-2xl bg-black/20 border border-white/5">
+                      <div className="flex justify-between items-start">
+                         <div className="flex items-center gap-2">
+                            <Grid size={16} className="text-blue-400" />
+                            <p className="text-[10px] font-black text-white uppercase tracking-widest">Tech Circuit Layer</p>
+                         </div>
+                         <button 
+                           onClick={() => updateSetting('enableTechGrid', !settings.enableTechGrid)}
+                           className={`relative w-10 h-6 rounded-full transition-colors duration-300 ${settings.enableTechGrid ? "bg-blue-600" : "bg-slate-700"}`}
+                         >
+                           <motion.div layout className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md" animate={{ x: settings.enableTechGrid ? 16 : 0 }} />
+                         </button>
+                      </div>
+                      
+                      {settings.enableTechGrid && (
+                        <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                          <button 
+                            onClick={() => updateSetting('techGridPosition', 'back')}
+                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${settings.techGridPosition === 'back' ? 'bg-white/10 text-white' : 'text-slate-500'}`}
+                          >
+                            <Move size={10} className="rotate-180" /> Backward (Subtle)
+                          </button>
+                          <button 
+                            onClick={() => updateSetting('techGridPosition', 'front')}
+                            className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1 ${settings.techGridPosition === 'front' ? 'bg-blue-500 text-white shadow-lg' : 'text-slate-500'}`}
+                          >
+                            Forward (Bold) <Move size={10} />
+                          </button>
+                        </div>
+                      )}
+                   </div>
+
+                   {/* 3. Noise Grain Toggle */}
+                   <div className="flex items-center justify-between p-4 rounded-2xl bg-black/20 border border-white/5">
+                      <div className="flex items-center gap-3">
+                         <div className="p-2 bg-white/5 rounded-lg text-slate-400">
+                           <Activity size={16} />
+                         </div>
+                         <div>
+                            <p className="text-[10px] font-black text-white uppercase tracking-widest">Film Grain / Noise</p>
+                            <p className="text-[9px] text-slate-500 font-medium">Adds texture to solid colors.</p>
+                         </div>
+                      </div>
+                      <button 
+                         onClick={() => updateSetting('enableNoise', !settings.enableNoise)}
+                         className={`p-2 rounded-xl border transition-all ${settings.enableNoise ? 'bg-white text-slate-900 border-white' : 'text-slate-500 border-white/10 hover:text-white'}`}
+                      >
+                         {settings.enableNoise ? <Eye size={16} /> : <EyeOff size={16} />}
+                      </button>
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Theme Accent Selection */}
+            <div className="space-y-6 pt-6 border-t border-white/5">
               <div className="flex items-center gap-2 pl-1">
                 <Box size={14} className="text-slate-500" />
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">System Accent Identity</label>

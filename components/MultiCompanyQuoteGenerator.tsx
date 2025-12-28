@@ -5,22 +5,21 @@ import { QuoteCard } from './quotes/QuoteCard';
 import SearchForm from './quotes/SearchForm';
 import { 
   Plus, 
-  Filter, 
-  ArrowUpRight, 
   ChevronLeft, 
   CloudUpload, 
   Loader2, 
   Printer, 
-  Calculator, 
   Layers, 
-  Sparkles, 
-  CheckCircle2, 
-  Trash2
+  Trash2,
+  Search,
+  Check
 } from 'lucide-react';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAsyncAction } from '../hooks/useAsyncAction';
+import { SEED_CLIENTS, SEED_SERVICES } from '../constants';
+import { ServiceItem } from '../types';
 
 // LAZY LOAD: The heavy PDF template engine is deferred until the user initiates creation/editing.
 const QuotationTemplateLazy = lazy(() => import('./quotes/QuotationTemplate').then(mod => ({ default: mod.QuotationTemplate })));
@@ -67,6 +66,10 @@ const MultiCompanyQuoteGenerator: React.FC<MultiCompanyQuoteGeneratorProps> = ({
   const [editId, setEditId] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   
+  // Suggestion States
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
+  
   const quotationRef = useRef<HTMLDivElement>(null);
   const { isLoading: isSaving, execute } = useAsyncAction();
 
@@ -86,7 +89,6 @@ const MultiCompanyQuoteGenerator: React.FC<MultiCompanyQuoteGeneratorProps> = ({
   });
 
   useEffect(() => {
-    // Simulate initial data hydration from DB
     const timer = setTimeout(() => setIsInitialLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
@@ -175,6 +177,34 @@ const MultiCompanyQuoteGenerator: React.FC<MultiCompanyQuoteGeneratorProps> = ({
     } finally {
       setIsExporting(false);
     }
+  };
+
+  // Autocomplete Logic
+  const filteredClients = useMemo(() => {
+    if (!formData.clientName) return SEED_CLIENTS;
+    return SEED_CLIENTS.filter(c => c.name.toLowerCase().includes(formData.clientName.toLowerCase()));
+  }, [formData.clientName]);
+
+  const selectClient = (client: any) => {
+    setFormData(prev => ({
+      ...prev,
+      clientName: client.name,
+      clientAddress: `${client.email}\n${client.contact || ''}\nVAT: ${client.vat || 'N/A'}`
+    }));
+    setShowClientSuggestions(false);
+  };
+
+  const selectService = (service: ServiceItem, idx: number) => {
+    const newItems = [...formData.items];
+    newItems[idx].description = service.title;
+    newItems[idx].price = service.selling_price;
+    setFormData({ ...formData, items: newItems });
+    setActiveItemIndex(null);
+  };
+
+  const filteredServices = (query: string) => {
+    if (!query) return SEED_SERVICES;
+    return SEED_SERVICES.filter(s => s.title.toLowerCase().includes(query.toLowerCase()));
   };
 
   const filteredQuotes = useMemo(() => {
@@ -305,12 +335,39 @@ const MultiCompanyQuoteGenerator: React.FC<MultiCompanyQuoteGeneratorProps> = ({
                   </div>
 
                   <div className="space-y-4 pt-6 border-t border-slate-800">
-                    <input 
-                      placeholder="Client Entity Name" 
-                      className="w-full px-5 py-4 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium outline-none focus:border-blue-500 transition-all" 
-                      value={formData.clientName} 
-                      onChange={(e) => setFormData({...formData, clientName: e.target.value})} 
-                    />
+                    <div className="relative">
+                      <input 
+                        placeholder="Client Entity Name" 
+                        className="w-full px-5 py-4 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium outline-none focus:border-blue-500 transition-all" 
+                        value={formData.clientName} 
+                        onChange={(e) => setFormData({...formData, clientName: e.target.value})}
+                        onFocus={() => setShowClientSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowClientSuggestions(false), 200)}
+                      />
+                      <AnimatePresence>
+                        {showClientSuggestions && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                            className="absolute top-full left-0 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar"
+                          >
+                            <p className="px-4 py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-950/50">Suggested Entities</p>
+                            {filteredClients.map(c => (
+                              <button 
+                                key={c.id} 
+                                onMouseDown={() => selectClient(c)} // onMouseDown fires before blur
+                                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex justify-between items-center group"
+                              >
+                                <span className="text-sm font-bold text-white">{c.name}</span>
+                                <Check size={14} className="text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            ))}
+                            {filteredClients.length === 0 && (
+                              <div className="px-4 py-3 text-xs text-slate-500 italic">No existing clients found.</div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                        <input 
@@ -357,16 +414,36 @@ const MultiCompanyQuoteGenerator: React.FC<MultiCompanyQuoteGeneratorProps> = ({
                           >
                             <Trash2 size={14} />
                           </button>
-                          <input 
-                            placeholder="Description" 
-                            className="w-full bg-transparent border-b border-slate-800 py-1 mb-2 text-sm text-white outline-none focus:border-blue-500" 
-                            value={item.description} 
-                            onChange={(e) => {
-                              const newItems = [...formData.items];
-                              newItems[idx].description = e.target.value;
-                              setFormData({...formData, items: newItems});
-                            }} 
-                          />
+                          
+                          <div className="relative mb-2">
+                            <input 
+                              placeholder="Description" 
+                              className="w-full bg-transparent border-b border-slate-800 py-1 text-sm text-white outline-none focus:border-blue-500" 
+                              value={item.description} 
+                              onFocus={() => setActiveItemIndex(idx)}
+                              onBlur={() => setTimeout(() => setActiveItemIndex(null), 200)}
+                              onChange={(e) => {
+                                const newItems = [...formData.items];
+                                newItems[idx].description = e.target.value;
+                                setFormData({...formData, items: newItems});
+                              }} 
+                            />
+                            {activeItemIndex === idx && (
+                              <div className="absolute top-full left-0 w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto custom-scrollbar">
+                                {filteredServices(item.description).map(s => (
+                                  <button
+                                    key={s.id}
+                                    onMouseDown={() => selectService(s, idx)}
+                                    className="w-full text-left px-3 py-2 hover:bg-white/5 text-xs text-slate-300 flex justify-between"
+                                  >
+                                    <span>{s.title}</span>
+                                    <span className="font-mono opacity-50">{s.selling_price}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
                           <div className="grid grid-cols-2 gap-4">
                             <input type="number" placeholder="Qty" className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold text-white" value={item.qty} onChange={(e) => {
                               const newItems = [...formData.items];

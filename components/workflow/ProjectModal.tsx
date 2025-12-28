@@ -3,13 +3,13 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Save, Calendar, DollarSign, User, Loader2, PieChart, TrendingUp } from "lucide-react";
 import { useAsyncAction } from "../../hooks/useAsyncAction";
-import { UserRole } from "../../types";
+import { UserRole, ProjectItem } from "../../types";
 
 interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: any) => Promise<void>;
-  projectToEdit?: any; 
+  projectToEdit?: ProjectItem | null; 
   userRole?: UserRole;
 }
 
@@ -25,7 +25,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, projectToEdit, u
     total_amount: "",
     cost: "",
     paul_share: "",
-    status: "ACTIVE"
+    status: "ACTIVE" as ProjectItem['status']
   });
 
   // Load Data if Editing
@@ -140,7 +140,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, projectToEdit, u
                       type="date"
                       value={formData.deadline}
                       onChange={e => setFormData({...formData, deadline: e.target.value})}
-                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 pl-12 text-white font-bold focus:border-blue-500/50 focus:bg-blue-500/5 outline-none transition-colors"
+                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 pl-12 text-white font-bold focus:border-blue-500/50 focus:bg-blue-500/5 outline-none transition-colors appearance-none"
                     />
                   </div>
                 </div>
@@ -230,7 +230,7 @@ export default function ProjectModal({ isOpen, onClose, onSave, projectToEdit, u
                     <button
                       type="button"
                       key={status}
-                      onClick={() => setFormData({...formData, status})}
+                      onClick={() => setFormData({...formData, status: status as any})}
                       className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
                         formData.status === status 
                           ? "bg-blue-600 border-blue-500 text-white shadow-lg" 
